@@ -1,8 +1,4 @@
 #cloud-config
-chpasswd:
-  list: |
-    ubuntu:RANDOM
-  expire: False
 
 manage_etc_hosts: localhost
 
