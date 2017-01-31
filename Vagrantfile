@@ -5,10 +5,17 @@
 CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.iso")
 
 
-Vagrant.require_version ">= 1.8.0"
+Vagrant.require_version ">= 1.9.0"
+
+if ARGV[0] == "up"
+  `make`
+end
 
 Vagrant.configure(2) do |config|
     config.vm.box = "ubuntu/xenial64"
+
+    # Forward ssh keys
+    config.ssh.forward_agent = true
 
     # Disable SSH password for 16.04 - we'll add the insecure Vagrant key
     # (don't worry, it's just an example and gets replaced anyway)
@@ -21,6 +28,14 @@ Vagrant.configure(2) do |config|
     # Disable shared folders
     config.vm.synced_folder ".", "/vagrant", disabled: true
 
+    config.vm.provider "virtualbox" do |vb|
+        # Display the VirtualBox GUI when booting the machine
+        vb.gui = false
+
+        # Customize the amount of memory on the VM:
+        vb.memory = "512"
+    end 
+
     # Tweak virtualbox
     config.vm.provider :virtualbox do |vb|
         # Attach nocloud.iso to the virtual machine
@@ -30,18 +45,6 @@ Vagrant.configure(2) do |config|
             "--port", "1",
             "--type", "dvddrive",
             "--medium", CLOUD_CONFIG_PATH
-        ]
-
-        # Speed up machine startup by using linked clones
-        vb.linked_clone = true
-
-        # Workarounds for 16.04 Vagrantfile problems:
-        # - can't start more than 1 machine with a static name
-        # - serial console slows down the boot process dramatically.
-        vb.name = nil
-        vb.customize [
-            "modifyvm", :id,
-            "--uartmode1", "disconnected"
         ]
     end
 end
