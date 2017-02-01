@@ -8,3 +8,10 @@ ssh_authorized_keys:
 
 bootcmd:
   - "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
+
+# Reboot after this script is done in case system upgrade requires a reboot
+power_state:
+  mode: reboot
+  message: "Rebooting.  Brb."
+  timeout: 3600 # Just set it for 1h so the script has time to run
+  condition: true
