@@ -1,5 +1,8 @@
 #cloud-config
 
+apt_update: true
+apt_upgrade: true
+
 manage_etc_hosts: localhost
 
 ssh_authorized_keys:
@@ -7,3 +10,59 @@ ssh_authorized_keys:
 
 bootcmd:
   - "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
+
+runcmd:
+  - apt-get autoremove -y
+  - passwd --delete root
+  - passwd --delete ubuntu
+  - cd /playbooks
+  - ansible-galaxy install --force --role-file=requirements.yml
+  - sudo -u ubuntu -- ansible-playbook -vvv storage.yml
+  - echo "FINITO"
+
+apt_sources:
+
+  # Ansible
+  - source: "ppa:ansible/ansible"
+    filename: "ansible.list"
+
+packages:
+  - ansible=2.2.1.0-1ppa~xenial
+  - bash
+
+write_files:
+  - path: "/playbooks/requirements.yml"
+    mode: "0644"
+    content: |
+      - src: "jacoelho.softwareraid"
+        version: "v1.2.0"
+      - src: "AerisCloud.disk"
+        version: "v2.2.0"
+
+  - path: "/playbooks/storage.yml"
+    mode: "0644"
+    content: |
+      - name: "set up host storage"
+        hosts: localhost
+        become: yes
+        roles:
+          - role: "jacoelho.softwareraid"
+            software_raid_devices:
+              - device: "/dev/md0"
+                level: 0
+                components:
+                  - "/dev/sdb"
+                  - "/dev/sdc"
+                  - "/dev/sdd"
+                filesystem_type: "ext4"
+                mount_point: "/data/persistent"
+                mount_options: "rw,noatime"
+                dump: 0
+                passno: 0
+
+# Reboot after this script is done in case system upgrade requires a reboot
+power_state:
+  mode: reboot
+  message: "Rebooting.  Brb."
+  timeout: 3600 # Just set it for 1h so the script has time to run
+  condition: true
