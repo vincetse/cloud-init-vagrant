@@ -12,7 +12,7 @@ if ARGV[0] == "up"
 end
 
 Vagrant.configure(2) do |config|
-    config.vm.box = "ubuntu/xenial64"
+    config.vm.box = "ubuntu/trusty64"
 
     # Forward ssh keys
     config.ssh.forward_agent = true
@@ -41,7 +41,7 @@ Vagrant.configure(2) do |config|
         # Attach nocloud.iso to the virtual machine
         vb.customize [
             "storageattach", :id,
-            "--storagectl", "SCSI",
+            "--storagectl", "SATAController",
             "--port", "1",
             "--type", "dvddrive",
             "--medium", CLOUD_CONFIG_PATH
