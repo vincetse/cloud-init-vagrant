@@ -1,3 +1,4 @@
+OS := $(shell uname -s)
 ifeq ($(OS), Darwin)
   ISO_CMD=mkisofs
 else
