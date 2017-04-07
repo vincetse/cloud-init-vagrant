@@ -2,6 +2,7 @@
 
 apt_update: true
 apt_upgrade: true
+apt_reboot_if_required: true
 
 manage_etc_hosts: localhost
 

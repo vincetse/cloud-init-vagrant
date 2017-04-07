@@ -1,3 +1,4 @@
 .vagrant
-nocloud.iso
+*.iso
 *.log
+user-data

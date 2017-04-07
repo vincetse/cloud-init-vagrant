@@ -5,8 +5,12 @@ else
   ISO_CMD=genisoimage
 endif
 
-nocloud.iso: meta-data user-data
+all: nocloud.leader.iso nocloud.follower.iso
+
+nocloud.%.iso:  user-data.%
+	cp --verbose --force $< user-data
 	$(ISO_CMD) \
 		-joliet -rock \
 		-volid "cidata" \
-		-output nocloud.iso meta-data user-data
+		-output $@ meta-data user-data
+	rm user-data

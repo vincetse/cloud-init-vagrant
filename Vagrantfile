@@ -2,7 +2,8 @@
 # vi: set ft=ruby :
 
 
-CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.iso")
+LEADER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.leader.iso")
+FOLLOWER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.follower.iso")
 
 Vagrant.require_version ">= 1.9.0"
 
@@ -65,17 +66,17 @@ Vagrant.configure(2) do |config|
         {
             "hostname" => "leader",
             "ip" => "10.200.0.11",
-            "iso" => CLOUD_CONFIG_PATH
+            "iso" => LEADER_CLOUD_CONFIG_PATH
         },
         {
             "hostname" => "follower1",
             "ip" => "10.200.0.12",
-            "iso" => CLOUD_CONFIG_PATH
+            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
         },
         {
             "hostname" => "follower2",
             "ip" => "10.200.0.13",
-            "iso" => CLOUD_CONFIG_PATH
+            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
         }
     ].each do |host|
         config.vm.define host["hostname"] do |config|
