@@ -1,9 +1,115 @@
 #cloud-config
 
+apt_update: true
+apt_upgrade: true
+
 manage_etc_hosts: localhost
 
 ssh_authorized_keys:
-  - ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
+- ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
 
 bootcmd:
-  - "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
+- "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
+
+groups:
+- "sudo"
+- "users"
+
+users:
+# The ubuntu/xenial64 Vagrant box uses the "ubuntu" user that seems to be
+# created by a Cloud Config file which gets overwritten by this file, so
+# creating the ubuntu user with the same settings as best as I can.
+- name: "ubuntu"
+  gecos: "Ubuntu"
+  shell: "/bin/bash"
+  primary-group: "ubuntu"
+  groups:
+  - adm
+  - dialout
+  - cdrom
+  - floppy
+  - sudo
+  - audio
+  - dip
+  - video
+  - plugdev
+  - netdev
+  - lxd
+  sudo:
+  - "ALL=(ALL) NOPASSWD:ALL"
+  ssh_authorized_keys:
+  - "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key"
+
+- name: "vtse"
+  gecos: "foobar"
+  primary-group: "users"
+  groups:
+  - sudo
+  shell: "/bin/bash"
+  sudo:
+  - "ALL=(ALL) NOPASSWD:ALL"
+  ssh-import-id: "gh:vincetse"
+
+apt_sources:
+  # ssh-import-id. get v5.6 cos v5.5 that comes with Xenial has a bug
+  # that only gets one ssh key from github.
+  - source: "ppa:ssh-import-id/ppa"
+    filename: "ssh_import_id.list"
+
+# The modules that run in the 'init' stage
+cloud_init_modules:
+ - migrator
+ - ubuntu-init-switch
+ - seed_random
+ - bootcmd
+ - write-files
+ - growpart
+ - resizefs
+ - set_hostname
+ - update_hostname
+ - update_etc_hosts
+ - ca-certs
+ - rsyslog
+ - users-groups
+ - ssh
+
+# The modules that run in the 'config' stage
+cloud_config_modules:
+# Emit the cloud config ready event
+# this can be used by upstart jobs for 'start on cloud-config'.
+ - emit_upstart
+ - disk_setup
+ - mounts
+ - locale
+ - set-passwords
+ - snappy
+ - grub-dpkg
+ - apt-pipelining
+ - apt-configure
+ - package-update-upgrade-install
+ - ssh-import-id
+ - fan
+ - landscape
+ - timezone
+ - lxd
+ - puppet
+ - chef
+ - salt-minion
+ - mcollective
+ - disable-ec2-metadata
+ - runcmd
+ - byobu
+
+# The modules that run in the 'final' stage
+cloud_final_modules:
+ - rightscale_userdata
+ - scripts-vendor
+ - scripts-per-once
+ - scripts-per-boot
+ - scripts-per-instance
+ - scripts-user
+ - ssh-authkey-fingerprints
+ - keys-to-console
+ - phone-home
+ - final-message
+ - power-state-change
