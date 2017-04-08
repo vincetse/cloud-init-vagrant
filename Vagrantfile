@@ -64,7 +64,7 @@ Vagrant.configure(2) do |config|
 
     [
         {
-            "hostname" => "cb",
+            "hostname" => "bootstrap",
             "ip" => "10.200.0.10",
             "iso" => CONSUL_BOOTSTRAP_CLOUD_CONFIG_PATH
         },

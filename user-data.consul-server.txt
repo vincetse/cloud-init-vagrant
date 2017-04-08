@@ -142,8 +142,6 @@ write_files:
     mv consul "${INSTALLDIR}"
     cd -
     pwd
-    #echo CONSUL_NODE_ID=$(uuid) > /etc/consul-environment
-    #echo CONSUL_NODE_NAME=${HOSTNAME} >> /etc/consul-environment
 
 - path: "/lib/systemd/system/setup-network-environment.service"
   owner: "root:root"
@@ -177,7 +175,6 @@ write_files:
     Group=root
     Environment="GOMAXPROCS=2"
     EnvironmentFile=/etc/network-environment
-    #EnvironmentFile=/etc/consul-environment
     ExecStart=/usr/local/bin/consul agent \
       -server \
       -bind=0.0.0.0 \
