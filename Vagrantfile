@@ -77,6 +77,16 @@ Vagrant.configure(2) do |config|
             "hostname" => "follower2",
             "ip" => "10.200.0.13",
             "iso" => FOLLOWER_CLOUD_CONFIG_PATH
+        },
+        {
+            "hostname" => "follower3",
+            "ip" => "10.200.0.13",
+            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
+        },
+        {
+            "hostname" => "follower4",
+            "ip" => "10.200.0.14",
+            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
         }
     ].each do |host|
         config.vm.define host["hostname"] do |config|

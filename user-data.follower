@@ -114,3 +114,88 @@ cloud_final_modules:
  - phone-home
  - final-message
  - power-state-change
+
+packages:
+- uuid
+- wget
+- zip
+
+write_files:
+- path: "/opt/install-consul.sh"
+  owner: "root:root"
+  permissions: "0755"
+  content: |
+    #!/bin/bash -eux
+    VERSION="0.8.0"
+    FILE="consul_${VERSION}_linux_amd64.zip"
+    URL="https://releases.hashicorp.com/consul/${VERSION}/${FILE}"
+    WORKDIR="/tmp"
+    INSTALLDIR="/usr/local/bin"
+    DATADIR="/var/lib/consul"
+    cd "${WORKDIR}"
+    pwd
+    wget --quiet "${URL}" --output-document "${FILE}"
+    unzip "${FILE}"
+    rm "${FILE}"
+    chmod +x consul
+    mkdir --verbose --parents "${INSTALLDIR}" "${DATADIR}"
+    mv consul "${INSTALLDIR}"
+    cd -
+    pwd
+    echo CONSUL_NODE_ID=$(uuid) > /etc/consul-environment
+    echo CONSUL_NODE_NAME=${HOSTNAME} >> /etc/consul-environment
+
+- path: "/lib/systemd/system/setup-network-environment.service"
+  owner: "root:root"
+  permissions: "0644"
+  content: |
+    [Unit]
+    Description=Setup Network Environment
+    Documentation=https://github.com/kelseyhightower/setup-network-environment
+    Requires=network-online.target
+    After=network-online.target
+
+    [Service]
+    ExecStartPre=-/bin/mkdir -p /usr/local/bin
+    ExecStartPre=/usr/bin/wget -N -P /usr/local/bin https://github.com/kelseyhightower/setup-network-environment/releases/download/v1.0.0/setup-network-environment
+    ExecStartPre=/bin/chmod +x /usr/local/bin/setup-network-environment
+    ExecStart=/usr/local/bin/setup-network-environment
+    RemainAfterExit=yes
+    Type=oneshot
+
+- path: "/lib/systemd/system/consul.service"
+  owner: "root:root"
+  permissions: "0644"
+  content: |
+    [Unit]
+    Description=Consul Server
+    Requires=setup-network-environment.service
+    After=network.target setup-network-environment.service
+
+    [Service]
+    User=root
+    Group=root
+    Environment="GOMAXPROCS=2"
+    EnvironmentFile=/etc/network-environment
+    EnvironmentFile=/etc/consul-environment
+    ExecStart=/usr/local/bin/consul agent \
+      -server \
+      -bind=0.0.0.0 \
+      -advertise=${ENP0S8_IPV4} \
+      -node-id=${CONSUL_NODE_ID} \
+      -data-dir=/var/lib/consul \
+      -node=${CONSUL_NODE_NAME} \
+      -join=10.200.0.11
+    ExecReload=/bin/kill -9 $MAINPID
+    KillSignal=SIGINT
+    Restart=on-failure
+
+    [Install]
+    WantedBy=multi-user.target
+
+runcmd:
+- /opt/install-consul.sh
+- /bin/systemctl enable setup-network-environment.service
+- /bin/systemctl start setup-network-environment.service
+- /bin/systemctl enable consul.service
+- /bin/systemctl start consul.service
