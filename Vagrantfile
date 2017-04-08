@@ -2,8 +2,8 @@
 # vi: set ft=ruby :
 
 
-LEADER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.leader.iso")
-FOLLOWER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.follower.iso")
+CONSUL_BOOTSTRAP_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.consul-bootstrap.iso")
+CONSUL_SERVER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.consul-server.iso")
 
 Vagrant.require_version ">= 1.9.0"
 
@@ -64,29 +64,34 @@ Vagrant.configure(2) do |config|
 
     [
         {
-            "hostname" => "leader",
+            "hostname" => "cb",
+            "ip" => "10.200.0.10",
+            "iso" => CONSUL_BOOTSTRAP_CLOUD_CONFIG_PATH
+        },
+        {
+            "hostname" => "cs1",
             "ip" => "10.200.0.11",
-            "iso" => LEADER_CLOUD_CONFIG_PATH
+            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
         },
         {
-            "hostname" => "follower1",
+            "hostname" => "cs2",
             "ip" => "10.200.0.12",
-            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
+            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
         },
         {
-            "hostname" => "follower2",
+            "hostname" => "cs3",
             "ip" => "10.200.0.13",
-            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
+            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
         },
         {
-            "hostname" => "follower3",
-            "ip" => "10.200.0.13",
-            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
-        },
-        {
-            "hostname" => "follower4",
+            "hostname" => "cs4",
             "ip" => "10.200.0.14",
-            "iso" => FOLLOWER_CLOUD_CONFIG_PATH
+            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
+        },
+        {
+            "hostname" => "cs5",
+            "ip" => "10.200.0.15",
+            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
         }
     ].each do |host|
         config.vm.define host["hostname"] do |config|
