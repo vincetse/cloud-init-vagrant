@@ -161,7 +161,7 @@ write_files:
     RemainAfterExit=yes
     Type=oneshot
 
-- path: "/lib/systemd/system/consul.service"
+- path: "/lib/systemd/system/consul-server.service"
   owner: "root:root"
   permissions: "0644"
   content: |
@@ -197,5 +197,5 @@ runcmd:
 - /opt/install-consul.sh
 - /bin/systemctl enable setup-network-environment.service
 - /bin/systemctl start setup-network-environment.service
-- /bin/systemctl enable consul.service
-- /bin/systemctl start consul.service
+- /bin/systemctl enable consul-server.service
+- /bin/systemctl start consul-server.service
