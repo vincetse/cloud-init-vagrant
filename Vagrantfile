@@ -88,7 +88,7 @@ Vagrant.configure(2) do |config|
         end
     end
 
-    (1..1).each do |id|
+    (1..2).each do |id|
         base_ip = 20
         host = {
             "hostname" => "compute-%02d" % [id],
