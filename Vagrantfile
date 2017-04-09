@@ -56,7 +56,7 @@ def create_vm config, host
 
     config.vm.provider "virtualbox" do |vb|
        vb.customize [ "modifyvm", :id, "--uart1", "0x3F8", "4" ]
-       vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{host['console']}.log") ]
+       vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{host['hostname']}.log") ]
     end
 end
 
