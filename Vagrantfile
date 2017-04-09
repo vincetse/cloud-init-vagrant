@@ -1,9 +1,9 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-
 CONSUL_BOOTSTRAP_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.consul-bootstrap.iso")
 CONSUL_SERVER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.consul-server.iso")
+COMPUTE_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud.compute.iso")
 
 Vagrant.require_version ">= 1.9.0"
 
@@ -39,7 +39,7 @@ def create_vm config, host
         vb.gui = false
 
         # Customize the amount of memory on the VM:
-        vb.memory = "512"
+        vb.memory = host["memory"]
     end
 
     # Tweak virtualbox
@@ -65,35 +65,37 @@ Vagrant.configure(2) do |config|
     [
         {
             "hostname" => "bootstrap",
+            "memory" => "512", #mb
             "ip" => "10.200.0.10",
             "iso" => CONSUL_BOOTSTRAP_CLOUD_CONFIG_PATH
-        },
-        {
-            "hostname" => "cs1",
-            "ip" => "10.200.0.11",
-            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
-        },
-        {
-            "hostname" => "cs2",
-            "ip" => "10.200.0.12",
-            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
-        },
-        {
-            "hostname" => "cs3",
-            "ip" => "10.200.0.13",
-            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
-        },
-        {
-            "hostname" => "cs4",
-            "ip" => "10.200.0.14",
-            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
-        },
-        {
-            "hostname" => "cs5",
-            "ip" => "10.200.0.15",
-            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
         }
     ].each do |host|
+        config.vm.define host["hostname"] do |config|
+            create_vm(config, host)
+        end
+    end
+
+    (1..5).each do |id|
+        base_ip = 10
+        host = {
+            "hostname" => "consul-%02d" % [id],
+            "memory" => "512", #mb
+            "ip" => "10.200.0.%d" % [base_ip + id],
+            "iso" => CONSUL_SERVER_CLOUD_CONFIG_PATH
+        }
+        config.vm.define host["hostname"] do |config|
+            create_vm(config, host)
+        end
+    end
+
+    (1..1).each do |id|
+        base_ip = 20
+        host = {
+            "hostname" => "compute-%02d" % [id],
+            "memory" => "1024", #mb
+            "ip" => "10.200.0.%d" % [base_ip + id],
+            "iso" => COMPUTE_CLOUD_CONFIG_PATH
+        }
         config.vm.define host["hostname"] do |config|
             create_vm(config, host)
         end

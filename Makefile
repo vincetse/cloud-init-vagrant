@@ -5,7 +5,7 @@ else
   ISO_CMD=genisoimage
 endif
 
-all: nocloud.consul-bootstrap.iso nocloud.consul-server.iso
+all: nocloud.consul-bootstrap.iso nocloud.consul-server.iso nocloud.compute.iso
 
 nocloud.%.iso:  user-data.%.txt
 	cp --verbose --force $< user-data
