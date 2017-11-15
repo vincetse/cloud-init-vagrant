@@ -19,7 +19,6 @@ Vagrant.configure(2) do |config|
 
     # Disable SSH password for 16.04 - we'll add the insecure Vagrant key
     # (don't worry, it's just an example and gets replaced anyway)
-    config.ssh.username = "vagrant"
     config.ssh.password = nil
 
     # To use your main public/private key pair, uncomment these lines:
