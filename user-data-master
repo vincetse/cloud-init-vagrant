@@ -1,0 +1,72 @@
+#cloud-config
+
+apt_update: true
+apt_upgrade: true
+apt_reboot_if_required: true
+
+apt_sources:
+
+# Docker
+- source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable"
+  filename: "docker.list"
+  keyid: "0EBFCD88"
+
+# Kubeadm
+- source: "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+  filename: "kubernetes.list"
+
+packages:
+- docker-ce
+- kubelet
+- kubeadm
+- kubectl
+- sudo
+- ssh-import-id
+- sysstat
+
+manage_etc_hosts: localhost
+
+ssh_authorized_keys:
+- ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
+
+bootcmd:
+- "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
+- bash -c "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -"
+
+write_files:
+- path: "/provision.sh"
+  permissions: "0744"
+  owner: "root:root"
+  content: |
+    #!/bin/bash -eux
+    kubeadm init \
+      --token a36ef3.6f6960dfc28f769d \
+      --pod-network-cidr=10.244.0.0/16 \
+      --apiserver-advertise-address=10.100.1.101
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+
+    # Flannel
+    kubectl apply \
+      -f https://raw.githubusercontent.com/coreos/flannel/v0.9.0/Documentation/kube-flannel.yml
+
+    # Make sure ubuntu user can run kubectl
+    sudo -u ubuntu -- mkdir -p ~ubuntu/.kube
+    cp -i /etc/kubernetes/admin.conf ~ubuntu/.kube/config
+    chown -R ubuntu:ubuntu ~ubuntu/.kube
+
+    # Helm
+    curl https://storage.googleapis.com/kubernetes-helm/helm-v2.7.1-linux-amd64.tar.gz -o helm.tar.gz
+    tar -zxvf helm.tar.gz
+    mv linux-amd64/helm /usr/local/bin
+    helm init
+
+- path: "/etc/sysctl.d/99-kubernetes.conf"
+  permissions: "0644"
+  owner: "root:root"
+  content: |
+    # Flannel
+    net.bridge.bridge-nf-call-iptables = 1
+
+runcmd:
+- sysctl net.bridge.bridge-nf-call-iptables=1
+- /provision.sh

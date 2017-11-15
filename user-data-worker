@@ -31,3 +31,26 @@ ssh_authorized_keys:
 
 bootcmd:
 - "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
+- bash -c "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -"
+
+write_files:
+- path: "/provision.sh"
+  permissions: "0744"
+  owner: "root:root"
+  content: |
+    #!/bin/bash -eux
+    kubeadm join \
+      --token a36ef3.6f6960dfc28f769d \
+      --discovery-token-unsafe-skip-ca-verification \
+      10.100.1.101:6443
+
+- path: "/etc/sysctl.d/99-kubernetes.conf"
+  permissions: "0644"
+  owner: "root:root"
+  content: |
+    # Flannel
+    net.bridge.bridge-nf-call-iptables = 1
+
+runcmd:
+- sysctl net.bridge.bridge-nf-call-iptables=1
+- /provision.sh
