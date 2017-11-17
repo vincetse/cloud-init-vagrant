@@ -10,7 +10,7 @@ $conf = {
     "num_instances" => 1, # should probably be only one.
     "instance_name_prefix" => "m",
     "vm_memory" => 1024,
-    "vm_cpus" => 4,
+    "vm_cpus" => 1,
     "vb_cpuexecutioncap" => 100,
     "ip_address_prefix" => "10.100.1.",
     "ip_address_start" => 101,
@@ -24,7 +24,7 @@ $conf = {
     "num_instances" => 3,
     "instance_name_prefix" => "w",
     "vm_memory" => 2048,
-    "vm_cpus" => 2,
+    "vm_cpus" => 1,
     "vb_cpuexecutioncap" => 100,
     "ip_address_prefix" => "10.100.1.",
     "ip_address_start" => 111,
@@ -39,7 +39,7 @@ $conf = {
 Vagrant.require_version ">= 1.9.0"
 
 if ARGV[0] == "up"
-  `make`
+  `make all`
 end
 
 def create_machine_class(config, conf)
@@ -95,6 +95,10 @@ def create_machine_class(config, conf)
 end
 
 Vagrant.configure(2) do |config|
+  config.hostmanager.enabled = true
+  config.hostmanager.manage_host = false
+  config.hostmanager.manage_guest = true
+  config.vm.provision :hostmanager
   create_machine_class(config, $conf["master"])
   create_machine_class(config, $conf["worker"])
 end
