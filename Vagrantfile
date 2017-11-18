@@ -97,7 +97,7 @@ def create_machine_class(config, conf, role)
 end
 
 Vagrant.configure(2) do |config|
-  config.hostmanager.enabled = true
+  config.hostmanager.enabled = false
   config.hostmanager.manage_host = false
   config.hostmanager.manage_guest = true
   create_machine_class(config, $conf, "master")

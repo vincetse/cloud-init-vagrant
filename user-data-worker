@@ -45,11 +45,11 @@ write_files:
       10.100.1.101:6443
 
     # advertise correct IP address
-    #ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
-    #sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${ADVERTISE_IP} /" \
-    #  -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-    #systemctl daemon-reload
-    #systemctl restart kubelet
+    ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
+    sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${HOSTNAME}.${ADVERTISE_IP}.nip.io /" \
+      -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+    systemctl daemon-reload
+    systemctl restart kubelet
 
 - path: "/etc/sysctl.d/99-kubernetes.conf"
   permissions: "0644"

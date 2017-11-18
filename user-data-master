@@ -40,6 +40,7 @@ write_files:
   content: |
     #!/bin/bash -eux
     ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
+    echo "${ADVERTISE_IP} ${HOSTNAME}" >> /etc/hosts
 
     kubeadm init \
       --token a36ef3.6f6960dfc28f769d \
@@ -48,10 +49,10 @@ write_files:
     export KUBECONFIG=/etc/kubernetes/admin.conf
 
     # advertise correct IP address
-    #sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${ADVERTISE_IP} /" \
-    #  -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-    #systemctl daemon-reload
-    #systemctl restart kubelet
+    sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${HOSTNAME}.${ADVERTISE_IP}.nip.io /" \
+      -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+    systemctl daemon-reload
+    systemctl restart kubelet
 
     # Flannel
     kubectl apply \
