@@ -34,6 +34,16 @@ bootcmd:
 - bash -c "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -"
 
 write_files:
+- path: "/etc/hosts"
+  permissions: "0644"
+  owner: "root:root"
+  content: |
+    127.0.0.1 localhost
+    10.100.1.101 m01
+    10.100.1.111 w01
+    10.100.1.112 w02
+    10.100.1.113 w03
+
 - path: "/provision.sh"
   permissions: "0744"
   owner: "root:root"
@@ -46,10 +56,10 @@ write_files:
 
     # advertise correct IP address
     ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
-    sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${HOSTNAME}.${ADVERTISE_IP}.nip.io /" \
-      -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-    systemctl daemon-reload
-    systemctl restart kubelet
+    #sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${HOSTNAME}.${ADVERTISE_IP}.nip.io /" \
+    #  -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+    #systemctl daemon-reload
+    #systemctl restart kubelet
 
 - path: "/etc/sysctl.d/99-kubernetes.conf"
   permissions: "0644"

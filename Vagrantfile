@@ -43,7 +43,8 @@ def create_machine_class(config, conf, role)
 
   (1..conf["num_instances"]).each do |i|
     config.vm.boot_timeout = 600
-    config.vm.box = "ubuntu/xenial64"
+    #config.vm.box = "ubuntu/xenial64"
+    config.vm.box = "ubuntu/zesty64"
     hostname_prefix = conf["instance_name_prefix"]
     hostname = "%s%02d" % [hostname_prefix, i]
     # Generate the ISO image used for first boot
@@ -51,7 +52,6 @@ def create_machine_class(config, conf, role)
       `make iso role=#{role} hostname=#{hostname} iso=nocloud-#{role}-#{hostname}.iso`
     end
     config.vm.define vm_name = hostname do |config|
-      config.vm.provision :hostmanager
       #config.vm.hostname = vm_name
 
       # Forward ssh keys
@@ -97,9 +97,6 @@ def create_machine_class(config, conf, role)
 end
 
 Vagrant.configure(2) do |config|
-  config.hostmanager.enabled = false
-  config.hostmanager.manage_host = false
-  config.hostmanager.manage_guest = true
   create_machine_class(config, $conf, "master")
   create_machine_class(config, $conf, "worker")
 end
