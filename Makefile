@@ -12,13 +12,25 @@ ca_pem = $(ssl_dir)/ca.pem
 
 all: nocloud-master.iso nocloud-worker.iso $(ssl_tgz)
 
+meta-data:
+	echo "instance-id: iid-"`openssl rand -hex 8` > $@
+	echo "local-hostname: $(hostname)" >> $@
+
+iso: meta-data
+	cp -f user-data-$(role) user-data
+	$(ISO_CMD) \
+		-joliet -rock \
+		-volid "cidata" \
+		-output $(iso) meta-data user-data
+	rm -f meta-data user-data
+
 nocloud-master.iso: meta-data user-data-master
 	cp -f user-data-master user-data
 	$(ISO_CMD) \
 		-joliet -rock \
 		-volid "cidata" \
 		-output nocloud-master.iso meta-data user-data
-	rm -f user-data
+	rm -f meta-data user-data
 
 nocloud-worker.iso: meta-data user-data-worker
 	cp -f user-data-worker user-data
@@ -26,7 +38,7 @@ nocloud-worker.iso: meta-data user-data-worker
 		-joliet -rock \
 		-volid "cidata" \
 		-output nocloud-worker.iso meta-data user-data
-	rm -f user-data
+	rm -f meta-data user-data
 
 $(ssl_dir):
 	mkdir -p $@
@@ -38,5 +50,5 @@ $(ssl_tgz): $(ssl_dir)
 	tar zcf $@ $(ssl_dir)
 
 clean:
-	rm -f nocloud-master.iso nocloud-worker.iso $(ca_key_pem) $(ca_key) $(ssl_tgz)
+	rm -f meta-data *.iso $(ca_key_pem) $(ca_key) $(ssl_tgz) *.log
 	rm -rf $(ssl_dir)
