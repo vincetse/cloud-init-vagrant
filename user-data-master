@@ -50,11 +50,13 @@ write_files:
   content: |
     #!/bin/bash -eux
     ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
-    echo "${ADVERTISE_IP} ${HOSTNAME}" >> /etc/hosts
+    CALICO_CIDR=192.168.0.0/16
+    FLANNEL_CIDR=10.244.0.0/16
+    POD_NETWORK_CIDR=${CALICO_CIDR}
 
     kubeadm init \
       --token a36ef3.6f6960dfc28f769d \
-      --pod-network-cidr=10.244.0.0/16 \
+      --pod-network-cidr=${POD_NETWORK_CIDR} \
       --apiserver-advertise-address=10.100.1.101
     export KUBECONFIG=/etc/kubernetes/admin.conf
 
@@ -65,8 +67,13 @@ write_files:
     #systemctl restart kubelet
 
     # Flannel
+    #kubectl apply \
+    #  -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
+
+    # Calico
     kubectl apply \
-      -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
+      -f https://docs.projectcalico.org/v2.6/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml
+
 
     # Make sure ubuntu user can run kubectl
     sudo -u ubuntu -- mkdir -p ~ubuntu/.kube

@@ -52,7 +52,7 @@ write_files:
     kubeadm join \
       --token a36ef3.6f6960dfc28f769d \
       --discovery-token-unsafe-skip-ca-verification \
-      10.100.1.101:6443
+      m01:6443
 
     # advertise correct IP address
     ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
