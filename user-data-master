@@ -94,5 +94,5 @@ write_files:
       apiGroup: ""
 
 runcmd:
-- usermod -G docker ubuntu
+- usermod -a -G docker ubuntu
 - /tmp/provision.sh
