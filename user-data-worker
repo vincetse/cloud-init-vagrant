@@ -54,20 +54,6 @@ write_files:
       --discovery-token-unsafe-skip-ca-verification \
       m01:6443
 
-    # advertise correct IP address
-    ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
-    #sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${HOSTNAME}.${ADVERTISE_IP}.nip.io /" \
-    #  -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-    #systemctl daemon-reload
-    #systemctl restart kubelet
-
-- path: "/etc/sysctl.d/99-kubernetes.conf"
-  permissions: "0644"
-  owner: "root:root"
-  content: |
-    # Flannel
-    net.bridge.bridge-nf-call-iptables = 1
-
 runcmd:
-- sysctl net.bridge.bridge-nf-call-iptables=1
+- usermod -G docker ubuntu
 - /provision.sh

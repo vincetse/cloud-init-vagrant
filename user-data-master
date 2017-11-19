@@ -49,26 +49,13 @@ write_files:
   owner: "root:root"
   content: |
     #!/bin/bash -eux
-    ADVERTISE_IP=$(ip -4 addr show enp0s8 | grep "inet" | head -1 |awk '{print $2}' | cut -d/ -f1)
-    CALICO_CIDR=192.168.0.0/16
-    FLANNEL_CIDR=10.244.0.0/16
-    POD_NETWORK_CIDR=${CALICO_CIDR}
+    POD_NETWORK_CIDR=192.168.0.0/16
 
     kubeadm init \
       --token a36ef3.6f6960dfc28f769d \
       --pod-network-cidr=${POD_NETWORK_CIDR} \
       --apiserver-advertise-address=10.100.1.101
     export KUBECONFIG=/etc/kubernetes/admin.conf
-
-    # advertise correct IP address
-    #sed -e "s/KUBELET_NETWORK_ARGS=/KUBELET_NETWORK_ARGS=--hostname-override=${HOSTNAME}.${ADVERTISE_IP}.nip.io /" \
-    #  -i /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-    #systemctl daemon-reload
-    #systemctl restart kubelet
-
-    # Flannel
-    #kubectl apply \
-    #  -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
 
     # Calico
     kubectl apply \
@@ -87,13 +74,6 @@ write_files:
     kubectl create serviceaccount tiller --namespace kube-system
     kubectl create -f /tmp/tiller-clusterrolebinding.yaml
     helm init --service-account tiller --upgrade
-
-- path: "/etc/sysctl.d/99-kubernetes.conf"
-  permissions: "0644"
-  owner: "root:root"
-  content: |
-    # Flannel
-    net.bridge.bridge-nf-call-iptables = 1
 
 - path: "/tmp/tiller-clusterrolebinding.yaml"
   permissions: "0644"
@@ -114,5 +94,5 @@ write_files:
       apiGroup: ""
 
 runcmd:
-- sysctl net.bridge.bridge-nf-call-iptables=1
+- usermod -G docker ubuntu
 - /tmp/provision.sh
