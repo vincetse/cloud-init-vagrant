@@ -44,7 +44,7 @@ write_files:
     10.100.1.112 w02
     10.100.1.113 w03
 
-- path: "/provision.sh"
+- path: "/tmp/provision.sh"
   permissions: "0744"
   owner: "root:root"
   content: |
@@ -74,7 +74,6 @@ write_files:
     kubectl apply \
       -f https://docs.projectcalico.org/v2.6/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml
 
-
     # Make sure ubuntu user can run kubectl
     sudo -u ubuntu -- mkdir -p ~ubuntu/.kube
     cp -i /etc/kubernetes/admin.conf ~ubuntu/.kube/config
@@ -85,6 +84,9 @@ write_files:
     tar -zxvf helm.tar.gz
     mv linux-amd64/helm /usr/local/bin
     helm init
+    kubectl create serviceaccount tiller --namespace kube-system
+    kubectl create -f /tmp/tiller-clusterrolebinding.yaml
+    helm init --service-account tiller --upgrade
 
 - path: "/etc/sysctl.d/99-kubernetes.conf"
   permissions: "0644"
@@ -93,6 +95,24 @@ write_files:
     # Flannel
     net.bridge.bridge-nf-call-iptables = 1
 
+- path: "/tmp/tiller-clusterrolebinding.yaml"
+  permissions: "0644"
+  owner: "root:root"
+  content: |
+    ---
+    kind: ClusterRoleBinding
+    apiVersion: rbac.authorization.k8s.io/v1beta1
+    metadata:
+      name: tiller-clusterrolebinding
+    subjects:
+    - kind: ServiceAccount
+      name: tiller
+      namespace: kube-system
+    roleRef:
+      kind: ClusterRole
+      name: cluster-admin
+      apiGroup: ""
+
 runcmd:
 - sysctl net.bridge.bridge-nf-call-iptables=1
-- /provision.sh
+- /tmp/provision.sh
