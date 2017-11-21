@@ -2,33 +2,15 @@
 # vi: set ft=ruby :
 
 
-MASTER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud-master.iso")
-WORKER_CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "nocloud-worker.iso")
-
 $conf = {
-  "master" => {
-    "num_instances" => 1, # should probably be only one.
-    "instance_name_prefix" => "m",
+  "gluster" => {
+    "num_instances" => 3,
+    "instance_name_prefix" => "g",
     "vm_memory" => 1024,
     "vm_cpus" => 1,
     "vb_cpuexecutioncap" => 100,
-    "ip_address_prefix" => "10.100.1.",
-    "ip_address_start" => 101,
-    "iso_image" => MASTER_CLOUD_CONFIG_PATH,
-    "shared_folders" => {
-      # host => guest
-      "." => "/vagrant"
-    }
-  },
-  "worker" => {
-    "num_instances" => 3,
-    "instance_name_prefix" => "w",
-    "vm_memory" => 2048,
-    "vm_cpus" => 1,
-    "vb_cpuexecutioncap" => 100,
-    "ip_address_prefix" => "10.100.1.",
-    "ip_address_start" => 111,
-    "iso_image" => WORKER_CLOUD_CONFIG_PATH,
+    "ip_address_prefix" => "10.100.0.",
+    "ip_address_start" => 51,
     "shared_folders" => {
       # host => guest
       "." => "/vagrant"
@@ -43,7 +25,6 @@ def create_machine_class(config, conf, role)
 
   (1..conf["num_instances"]).each do |i|
     config.vm.boot_timeout = 600
-    #config.vm.box = "ubuntu/xenial64"
     config.vm.box = "ubuntu/zesty64"
     hostname_prefix = conf["instance_name_prefix"]
     hostname = "%s%02d" % [hostname_prefix, i]
@@ -85,18 +66,18 @@ def create_machine_class(config, conf, role)
               "--storagectl", "SCSI",
               "--port", "1",
               "--type", "dvddrive",
-              "--medium", "nocloud-#{role}-#{hostname}.iso" #conf["iso_image"]
+              "--medium", "nocloud-#{role}-#{hostname}.iso"
           ]
       end
+
       config.vm.provider "virtualbox" do |vb|
-         vb.customize [ "modifyvm", :id, "--uart1", "0x3F8", "4" ]
-         vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{hostname}.log") ]
+        vb.customize [ "modifyvm", :id, "--uart1", "0x3F8", "4" ]
+        vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{hostname}.log") ]
       end
     end
   end
 end
 
 Vagrant.configure(2) do |config|
-  create_machine_class(config, $conf, "master")
-  create_machine_class(config, $conf, "worker")
+  create_machine_class(config, $conf, "gluster")
 end

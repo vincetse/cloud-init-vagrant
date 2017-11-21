@@ -7,24 +7,15 @@ apt_reboot_if_required: true
 apt_sources:
 
 # Docker
-- source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable"
+- source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable"
   filename: "docker.list"
   keyid: "0EBFCD88"
 
-# Kubeadm
-- source: "deb http://apt.kubernetes.io/ kubernetes-xenial main"
-  filename: "kubernetes.list"
-
-# GlusterFS client
-- source: "ppa:gluster/glusterfs-3.8"
+- source: "ppa:gluster/glusterfs-3.12"
   filename: "glusterfs.list"
 
 packages:
-- docker-ce
-- glusterfs-client
-- kubelet
-- kubeadm
-- kubectl
+- glusterfs-server
 - sudo
 - ssh-import-id
 - sysstat
@@ -34,9 +25,8 @@ manage_etc_hosts: localhost
 ssh_authorized_keys:
 - ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
 
-bootcmd:
-- "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
-- bash -c "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -"
+#bootcmd:
+#- "ln -snf /run/resolvconf/resolv.conf /etc/resolv.conf"
 
 write_files:
 - path: "/etc/hosts"
@@ -44,21 +34,37 @@ write_files:
   owner: "root:root"
   content: |
     127.0.0.1 localhost
-    10.100.1.101 m01
-    10.100.1.111 w01
-    10.100.1.112 w02
-    10.100.1.113 w03
+    10.100.0.51 g01
+    10.100.0.52 g02
+    10.100.0.53 g03
 
-- path: "/provision.sh"
+- path: "/tmp/provision.sh"
   permissions: "0744"
   owner: "root:root"
   content: |
     #!/bin/bash -eux
-    kubeadm join \
-      --token a36ef3.6f6960dfc28f769d \
-      --discovery-token-unsafe-skip-ca-verification \
-      m01:6443
+    function probe_peer()
+    {
+      # keep probing for peer until we find it
+      local peer=$1
+      while :; do
+        set +e
+        gluster peer probe ${peer}
+        local retv=$?
+        set -e
+        [[ "${retv}" == 0 ]] && break
+        sleep 1
+      done
+    }
+
+    PEERS="g01 g02 g03"
+    # loop through and probe for all the machines
+    for peer in ${PEERS}; do
+      probe_peer ${peer}
+    done
+
+    # data directory for bricks
+    mkdir -p /data/bricks
 
 runcmd:
-- usermod -a -G docker ubuntu
-- /provision.sh
+- /tmp/provision.sh
