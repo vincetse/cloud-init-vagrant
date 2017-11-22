@@ -1,0 +1,85 @@
+= Vagrant Multi-Node GlusterFS Cluster
+Vince Tse <vincetse@users.noreply.github.com>
+v0.1.0, 2017-11-22
+:toc:
+:toc-title:
+:sectnums:
+
+== Overview
+
+This is a GlusterFS 3-node setup based on Chris Armstrong's (@carmstrong) link:https://github.com/carmstrong/multinode-glusterfs-vagrant[multinode-glusterfs-vagrant].  I have taken what Chris had done and did the following:
+
+. Converted the provisioning to use Cloud Init (based on Alex Tomkins' work in link:https://www.alextomkins.com/2016/09/testing-cloud-init-with-vagrant/[Testing cloud-init with Vagrant]).
+. Added GlusterFS link:http://docs.gluster.org/en/latest/Administrator%20Guide/Storage%20Pools/[peer probing] to the provisioning process so that it does not have to be done manually.
+
+
+== Before You Start
+
+This setup uses link:https://cloud-init.io/[Cloud Init] to provision the Vagrant boxes, we need to create an ISO image with `user-data` and `meta-data` for Cloud Init's link:http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html[NoCloud] data source to feed the data to the virtual machine.  Thus, we will need to install the `genisoimage` package on Debian/Ubuntu or the `cdrtools` Home Brew package on MacOS.
+
+.Debian/Ubuntu
+[source,bash]
+----
+sudo apt-get install genisoimage
+----
+
+.MacOS Home Brew
+[source,bash]
+----
+brew install cdrtools
+----
+
+== How To Use
+
+=== Creating GlusterFS Cluster
+
+. Create GlusterFS server nodes
+[source,bash]
+----
+vagrant up /g../
+----
+
+
+=== Creating ClusterFS Client
+
+TBD
+
+=== Adding GlusterFS Cluster Nodes
+
+.Vagrantfile: Update `num_instances` to the desired number of servers
+[source,ruby]
+----
+$conf = {
+  "gluster" => {
+    "num_instances" => 3,
+    "instance_name_prefix" => "g",
+    "vm_memory" => 1024,
+    "vm_cpus" => 1,
+    "vb_cpuexecutioncap" => 100,
+    "ip_address_prefix" => "10.100.0.",
+    "ip_address_start" => 51,
+    "shared_folders" => {
+      # host => guest
+      "." => "/vagrant"
+    }
+  }
+}
+----
+
+.user-data-gluster: Add the server names to the hosts file
+[source,yaml]
+----
+- path: "/etc/hosts"
+  permissions: "0644"
+  owner: "root:root"
+  content: |
+    127.0.0.1 localhost
+    10.100.0.51 g01
+    10.100.0.52 g02
+    10.100.0.53 g03
+----
+
+== Credits
+
+* Alex Tomkins (@tomkims) for showing me how to use link:https://www.alextomkins.com/2016/09/testing-cloud-init-with-vagrant/[Cloud Init in Vagrant].
+* Chris Armstrong (@carmstrong) for showing me a basic link:https://github.com/carmstrong/multinode-glusterfs-vagrant[Multinode GlusterFS in Vagrant] setup.
