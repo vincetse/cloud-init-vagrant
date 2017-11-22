@@ -31,18 +31,23 @@ brew install cdrtools
 
 == How To Use
 
-=== Creating GlusterFS Cluster
+=== Creating GlusterFS Cluster Nodes
 
-. Create GlusterFS server nodes
+.Create GlusterFS server nodes
 [source,bash]
 ----
-vagrant up /g../
+vagrant up g01 g02 g03
 ----
 
 
-=== Creating ClusterFS Client
+=== Creating GlusterFS Client Node
 
-TBD
+.Spin up the GlusterFS client:w
+[source,bash]
+----
+vagrant up gclient
+----
+
 
 === Adding GlusterFS Cluster Nodes
 
