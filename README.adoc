@@ -45,7 +45,7 @@ vagrant up g01 g02 g03
 .Spin up the GlusterFS client:w
 [source,bash]
 ----
-vagrant up gclient
+vagrant up gclient01
 ----
 
 
