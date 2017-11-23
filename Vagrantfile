@@ -3,7 +3,7 @@
 
 
 $conf = {
-  "gluster" => {
+  "server" => {
     "num_instances" => 3,
     "instance_name_prefix" => "g",
     "vm_memory" => 1024,
@@ -11,6 +11,19 @@ $conf = {
     "vb_cpuexecutioncap" => 100,
     "ip_address_prefix" => "10.100.0.",
     "ip_address_start" => 51,
+    "shared_folders" => {
+      # host => guest
+      "." => "/vagrant"
+    }
+  },
+  "client" => {
+    "num_instances" => 1,
+    "instance_name_prefix" => "gclient",
+    "vm_memory" => 512,
+    "vm_cpus" => 1,
+    "vb_cpuexecutioncap" => 100,
+    "ip_address_prefix" => "10.100.0.",
+    "ip_address_start" => 50,
     "shared_folders" => {
       # host => guest
       "." => "/vagrant"
@@ -79,5 +92,6 @@ def create_machine_class(config, conf, role)
 end
 
 Vagrant.configure(2) do |config|
-  create_machine_class(config, $conf, "gluster")
+  create_machine_class(config, $conf, "server")
+  create_machine_class(config, $conf, "client")
 end

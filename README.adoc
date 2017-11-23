@@ -79,6 +79,7 @@ $conf = {
   owner: "root:root"
   content: |
     127.0.0.1 localhost
+    10.100.0.50 gclient01
     10.100.0.51 g01
     10.100.0.52 g02
     10.100.0.53 g03
