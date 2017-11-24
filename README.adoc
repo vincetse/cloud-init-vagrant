@@ -33,6 +33,8 @@ brew install cdrtools
 
 === Creating GlusterFS Cluster Nodes
 
+This setup, out of the box, creates 3 GlusterFS server nodes (and one client node).
+
 .Create GlusterFS server nodes
 [source,bash]
 ----
