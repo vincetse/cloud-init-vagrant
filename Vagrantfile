@@ -11,6 +11,7 @@ $conf = {
     "vb_cpuexecutioncap" => 100,
     "ip_address_prefix" => "10.100.0.",
     "ip_address_start" => 51,
+    "server_volume_size_gb" => 512,
     "shared_folders" => {
       # host => guest
       "." => "/vagrant"
@@ -73,14 +74,42 @@ def create_machine_class(config, conf, role)
 
       # Tweak virtualbox
       config.vm.provider :virtualbox do |vb|
-          # Attach nocloud.iso to the virtual machine
-          vb.customize [
+        # Attach nocloud.iso to the virtual machine
+        vb.customize [
+          "storageattach", :id,
+          "--storagectl", "SCSI",
+          "--port", "1",
+          "--type", "dvddrive",
+          "--medium", "nocloud-#{role}-#{hostname}.iso"
+        ]
+
+        # Add two drives as GlusterFS server volumes
+        if role.eql?("server")
+          scsi_next_port = 2
+          (1..2).each do |i|
+            # Create the GlusterFS server volume if necessary
+            glusterfs_volume = "glusterfs.#{hostname}.#{i}.vdi"
+            unless File.exist?(glusterfs_volume)
+              vb.customize [
+                "createmedium", "disk",
+                "--filename", glusterfs_volume,
+                "--size", conf["server_volume_size_gb"] * 1024,
+                "--format", "VDI",
+                "--variant", "Standard"
+              ]
+            end
+
+            # Add drive to virtual machine
+            vb.customize [
               "storageattach", :id,
               "--storagectl", "SCSI",
-              "--port", "1",
-              "--type", "dvddrive",
-              "--medium", "nocloud-#{role}-#{hostname}.iso"
-          ]
+              "--port", "#{scsi_next_port}",
+              "--type", "hdd",
+              "--medium", glusterfs_volume
+            ]
+            scsi_next_port += 1
+          end
+        end
       end
 
       config.vm.provider "virtualbox" do |vb|

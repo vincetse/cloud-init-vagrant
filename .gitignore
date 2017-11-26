@@ -1,6 +1,7 @@
 .vagrant
 *.iso
 *.log
+*.vdi
 ssl
 ssl.tgz
 meta-data

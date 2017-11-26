@@ -16,9 +16,11 @@ apt_sources:
 
 packages:
 - glusterfs-server
+- lvm2
 - sudo
 - ssh-import-id
 - sysstat
+- thin-provisioning-tools
 
 ssh_authorized_keys:
 - ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
@@ -41,14 +43,68 @@ write_files:
   permissions: "0744"
   owner: "root:root"
   content: |
-    #!/bin/bash -eux
+    #!/bin/bash -eu
+    ################################################################################
+    # LVM setup
+    # http://docs.gluster.org/en/latest/Administrator%20Guide/Setting%20Up%20Volumes/#setting-up-glusterfs-server-volumes
+    # https://www.tecmint.com/setup-thin-provisioning-volumes-in-lvm/
+    ################################################################################
+    # We added two 512GB drives in the Vagrantfile, and they are added as these
+    # devices by Linux
+    function setup_lvm()
+    {
+      local gfs_volume_group_name=$1
+      local gfs_thin_pool_name=$2
+      local gfs_thin_volume_name=$3
+      local gfs_bricks_base=$4
+      local disks=$5
+      # Remove any existing partition tables
+      for disk in ${disks}; do
+        dd if=/dev/zero of=${disk} bs=512 count=1
+      done
+      # Create an LVM Thin Pool as GFS server volume
+      (
+        set -x
+        pvcreate --dataalignment 1280K ${disks}
+        vgcreate --physicalextentsize 128K ${gfs_volume_group_name} ${disks}
+        vgs
+        lvcreate --size 999G --thinpool ${gfs_thin_pool_name} ${gfs_volume_group_name}
+        lvdisplay ${gfs_volume_group_name}/${gfs_thin_pool_name}
+        lvchange --zero n ${gfs_volume_group_name}/${gfs_thin_pool_name}
+        lvcreate --virtualsize 10G --thin --name ${gfs_thin_volume_name} ${gfs_volume_group_name}/${gfs_thin_pool_name}
+        lvs
+        mkfs.xfs -f -i size=512 -n size=8192 -d su=128k,sw=10 /dev/${gfs_volume_group_name}/${gfs_thin_volume_name}
+      )
+    }
+
+    GFS_VOLUME_GROUP_NAME=vg_gfs
+    GFS_THIN_POOL_NAME=tp_gfs
+    GFS_THIN_VOLUME_NAME=gfs_volume
+    GFS_BRICKS_BASE=/data/glusterfs
+    DISKS="/dev/sdb /dev/sdc"
+    setup_lvm ${GFS_VOLUME_GROUP_NAME} ${GFS_THIN_POOL_NAME} ${GFS_THIN_VOLUME_NAME} ${GFS_BRICKS_BASE} "${DISKS}"
+
+    # data directory for bricks
+    (
+      set -x
+      mkdir -p ${GFS_BRICKS_BASE}/${GFS_THIN_VOLUME_NAME}
+      mount --types xfs --options rw,inode64,noatime,nouuid /dev/${GFS_VOLUME_GROUP_NAME}/${GFS_THIN_VOLUME_NAME} ${GFS_BRICKS_BASE}/${GFS_THIN_VOLUME_NAME}
+      mount
+    )
+
+    ################################################################################
+    # GlusterFS setup
+    ################################################################################
     function probe_peer()
     {
       # keep probing for peer until we find it
       local peer=$1
       while :; do
         set +e
-        gluster peer probe ${peer}
+        (
+          set -ex
+          gluster peer probe ${peer}
+        )
         local retv=$?
         set -e
         [[ "${retv}" == 0 ]] && break
@@ -62,8 +118,6 @@ write_files:
       probe_peer ${peer}
     done
 
-    # data directory for bricks
-    mkdir -p /data/glusterfs
 
 runcmd:
 - /tmp/provision.sh
