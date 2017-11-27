@@ -80,12 +80,14 @@ write_files:
     GFS_BRICKS_BASE=/data/glusterfs
     DISKS="/dev/sdb /dev/sdc"
     setup_lvm ${GFS_VOLUME_GROUP_NAME} ${GFS_THIN_POOL_NAME} ${GFS_THIN_VOLUME_NAME} ${GFS_BRICKS_BASE} "${DISKS}"
+    BRICK1=${GFS_BRICKS_BASE}/${GFS_THIN_VOLUME_NAME}/brick1
 
     # data directory for bricks
     (
       set -x
-      mkdir -p ${GFS_BRICKS_BASE}/${GFS_THIN_VOLUME_NAME}
-      mount --types xfs --options rw,inode64,noatime,nouuid /dev/${GFS_VOLUME_GROUP_NAME}/${GFS_THIN_VOLUME_NAME} ${GFS_BRICKS_BASE}/${GFS_THIN_VOLUME_NAME}
+      mkdir -p ${BRICK1}
+      echo "/dev/${GFS_VOLUME_GROUP_NAME}/${GFS_THIN_VOLUME_NAME} ${BRICK1} xfs rw,inode64,noatime,nouuid 0 0" >> /etc/fstab
+      mount ${BRICK1}
       mount
     )
 
@@ -109,12 +111,20 @@ write_files:
       done
     }
 
-    PEERS="g01 g02 g03"
-    # loop through and probe for all the machines
-    for peer in ${PEERS}; do
-      probe_peer ${peer}
-    done
-
+    # Probe for GlusterFS peers and set up volume
+    if [[ "$(hostname)" == "g01" ]]; then
+      probe_peer g02
+      probe_peer g03
+      # It seems like we need to stop for a short time for the peers to arrive
+      # at a quorum of some sort.
+      sleep 5
+      (
+        set -x
+        gluster volume create ${GFS_THIN_VOLUME_NAME} replica 3 g0{1..3}:${BRICK1}/brick
+        gluster volume start ${GFS_THIN_VOLUME_NAME}
+        gluster volume info ${GFS_THIN_VOLUME_NAME}
+      )
+    fi
 
 runcmd:
 - /tmp/provision.sh
