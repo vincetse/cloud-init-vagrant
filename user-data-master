@@ -53,6 +53,7 @@ write_files:
 
     kubeadm init \
       --token a36ef3.6f6960dfc28f769d \
+      --token-ttl 0 \
       --pod-network-cidr=${POD_NETWORK_CIDR} \
       --apiserver-advertise-address=10.100.1.101
     export KUBECONFIG=/etc/kubernetes/admin.conf
