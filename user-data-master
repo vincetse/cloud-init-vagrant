@@ -66,6 +66,7 @@ write_files:
     sudo -u ubuntu -- mkdir -p ~ubuntu/.kube
     cp -i /etc/kubernetes/admin.conf ~ubuntu/.kube/config
     chown -R ubuntu:ubuntu ~ubuntu/.kube
+    cp ~ubuntu/.kube/config /vagrant/kubeconfig
 
     # Helm
     curl https://storage.googleapis.com/kubernetes-helm/helm-v2.7.1-linux-amd64.tar.gz -o helm.tar.gz

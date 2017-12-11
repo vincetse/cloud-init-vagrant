@@ -74,23 +74,31 @@ def create_machine_class(config, conf, role)
       ip = conf["ip_address_prefix"] + "#{ip_num}"
       config.vm.network :private_network, ip: ip
 
+      # Shared folders
+      config.vm.provider :virtualbox do |vb|
+        conf["shared_folders"].each do |host_folder, guest_folder|
+          config.vm.synced_folder host_folder, guest_folder
+        end
+      end
+
       # Disable shared folders
-      config.vm.synced_folder ".", "/vagrant", disabled: true
+      #config.vm.synced_folder ".", "/vagrant", disabled: false
+      #config.vm.synced_folder conf["shared_folders"]
 
       # Tweak virtualbox
       config.vm.provider :virtualbox do |vb|
-          # Attach nocloud.iso to the virtual machine
-          vb.customize [
-              "storageattach", :id,
-              "--storagectl", "SCSI",
-              "--port", "1",
-              "--type", "dvddrive",
-              "--medium", "nocloud-#{role}-#{hostname}.iso" #conf["iso_image"]
-          ]
+        # Attach nocloud.iso to the virtual machine
+        vb.customize [
+          "storageattach", :id,
+          "--storagectl", "SCSI",
+          "--port", "1",
+          "--type", "dvddrive",
+          "--medium", "nocloud-#{role}-#{hostname}.iso" #conf["iso_image"]
+        ]
       end
       config.vm.provider "virtualbox" do |vb|
-         vb.customize [ "modifyvm", :id, "--uart1", "0x3F8", "4" ]
-         vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{hostname}.log") ]
+        vb.customize [ "modifyvm", :id, "--uart1", "0x3F8", "4" ]
+        vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{hostname}.log") ]
       end
     end
   end
