@@ -8,7 +8,7 @@ endif
 all: nocloud.consul-bootstrap.iso nocloud.consul-server.iso nocloud.compute.iso
 
 nocloud.%.iso:  user-data.%.txt
-	cp --verbose --force $< user-data
+	cp -vf $< user-data
 	$(ISO_CMD) \
 		-joliet -rock \
 		-volid "cidata" \
