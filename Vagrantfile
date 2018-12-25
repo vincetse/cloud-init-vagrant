@@ -6,7 +6,7 @@ $conf = {
     "num_instances" => 1, # should probably be only one.
     "instance_name_prefix" => "m",
     "vm_memory" => 1024,
-    "vm_cpus" => 1,
+    "vm_cpus" => 2,
     "vb_cpuexecutioncap" => 100,
     "ip_address_prefix" => "10.100.1.",
     "ip_address_start" => 101,
@@ -19,7 +19,7 @@ $conf = {
     "num_instances" => 1,
     "instance_name_prefix" => "w",
     "vm_memory" => 2048,
-    "vm_cpus" => 1,
+    "vm_cpus" => 2,
     "vb_cpuexecutioncap" => 100,
     "ip_address_prefix" => "10.100.1.",
     "ip_address_start" => 111,
@@ -92,7 +92,7 @@ def provision_master(config, conf)
 
         # install Docker and Kubernetes
         apt-get install -y \
-          docker-ce \
+          docker-ce=18.06.0~ce~3-0~ubuntu \
           kubelet \
           kubeadm \
           kubectl \
@@ -144,7 +144,7 @@ def provision_worker(config, conf)
         curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
         echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" \
           > /etc/apt/sources.list.d/kubernetes.list
-        add-apt-repository ppa:gluster/glusterfs-3.8
+        add-apt-repository ppa:gluster/glusterfs-5
 
         # update the system
         export DEBIAN_FRONTEND=noninteractive
@@ -153,7 +153,7 @@ def provision_worker(config, conf)
 
         # install Docker and Kubernetes
         apt-get install -y \
-          docker-ce \
+          docker-ce=18.06.0~ce~3-0~ubuntu \
           glusterfs-client \
           kubelet \
           kubeadm \
