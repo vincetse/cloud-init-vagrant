@@ -4,7 +4,7 @@
 $conf = {
   "master" => {
     "num_instances" => 1, # should probably be only one.
-    "instance_name_prefix" => "m",
+    "instance_name_prefix" => "c",
     "vm_memory" => 1024,
     "vm_cpus" => 2,
     "vb_cpuexecutioncap" => 100,
@@ -16,9 +16,9 @@ $conf = {
     }
   },
   "worker" => {
-    "num_instances" => 1,
+    "num_instances" => 2,
     "instance_name_prefix" => "w",
-    "vm_memory" => 2048,
+    "vm_memory" => 1024,
     "vm_cpus" => 2,
     "vb_cpuexecutioncap" => 100,
     "ip_address_prefix" => "10.100.1.",
@@ -29,14 +29,12 @@ $conf = {
     }
   }
 }
-$kubeadm_token = "a36ef3.6f6960dfc28f769d"
-$pod_network_cidr = "192.168.0.0/16"
 
 Vagrant.require_version ">= 1.9.0"
 
 def configure_machine(config, conf, i, hostname)
   config.vm.boot_timeout = 600
-  config.vm.box = "ubuntu/xenial64"
+  config.vm.box = "ubuntu/bionic64"
   config.vm.hostname = hostname
 
   # Forward ssh keys
@@ -67,63 +65,53 @@ def configure_machine(config, conf, i, hostname)
      vb.customize [ "modifyvm", :id, "--uart1", "0x3F8", "4" ]
      vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{hostname}.log") ]
   end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    export DEBIAN_FRONTEND=noninteractive
+    set -euxo pipefail
+    apt-get update
+    apt-get upgrade -y -qq
+  SHELL
+
+  # Citus Data
+  # https://docs.citusdata.com/en/v8.1/installation/multi_machine_debian.html
+  config.vm.provision "shell", inline: <<-SHELL
+    export DEBIAN_FRONTEND=noninteractive
+    set -euxo pipefail
+
+    curl -fsSL https://install.citusdata.com/community/deb.sh | bash
+    apt-get -y install postgresql-11-citus-8.1
+    pg_conftool 11 main set shared_preload_libraries citus
+    pg_conftool 11 main set listen_addresses '*'
+
+    echo "host    all             all             10.0.0.0/8              trust" >> /etc/postgresql/11/main/pg_hba.conf
+    service postgresql restart
+    update-rc.d postgresql enable
+    sudo -i -u postgres -- psql -c "CREATE EXTENSION citus;"
+  SHELL
 end
 
-def provision_master(config, conf)
+def provision_master(config, conf, worker_ips)
   (1..conf["num_instances"]).each do |i|
     hostname_prefix = conf["instance_name_prefix"]
     hostname = "%s%02d" % [hostname_prefix, i]
     config.vm.define vm_name = hostname do |config|
       configure_machine(config, conf, i, vm_name)
+
+      # Citus Data
+      # https://docs.citusdata.com/en/v8.1/installation/multi_machine_debian.html
+      worker_ips.each do |ip|
+        config.vm.provision "shell", inline: <<-SHELL
+          export DEBIAN_FRONTEND=noninteractive
+          set -euxo pipefail
+          sudo -i -u postgres -- psql -c "SELECT * from master_add_node('#{ip}', 5432);"
+        SHELL
+      end
+
       config.vm.provision "shell", inline: <<-SHELL
-        set -eux
-        # Add apt repos to install Docker and Kubernetes
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable" \
-          > /etc/apt/sources.list.d/docker.list
-        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-        echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" \
-          > /etc/apt/sources.list.d/kubernetes.list
-
-        # update the system
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get dist-upgrade -y
-
-        # install Docker and Kubernetes
-        apt-get install -y \
-          docker-ce=18.06.0~ce~3-0~ubuntu \
-          kubelet \
-          kubeadm \
-          kubectl \
-          sysstat
-
-        # initialize kubeadm
-        kubeadm init \
-          --token=#{$kubeadm_token} \
-          --token-ttl=0 \
-          --pod-network-cidr=#{$pod_network_cidr} \
-          --apiserver-advertise-address=10.100.1.101
-        export KUBECONFIG=/etc/kubernetes/admin.conf
-
-        # Calico
-        kubectl apply \
-          -f https://docs.projectcalico.org/v2.6/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml
-
-        # Make sure ubuntu user can run kubectl
-        sudo -u ubuntu -- mkdir -p ~ubuntu/.kube
-        cp -i /etc/kubernetes/admin.conf ~ubuntu/.kube/config
-        chown -R ubuntu:ubuntu ~ubuntu/.kube
-        cp ~ubuntu/.kube/config /vagrant/kubeconfig
-
-        # Helm
-        curl -fsSL https://storage.googleapis.com/kubernetes-helm/helm-v2.7.1-linux-amd64.tar.gz -o helm.tar.gz
-        tar -zxvf helm.tar.gz
-        mv linux-amd64/helm /usr/local/bin
-        helm init
-        kubectl create serviceaccount tiller --namespace kube-system
-        kubectl create -f /vagrant/tiller-clusterrolebinding.yaml
-        helm init --service-account tiller --upgrade
+        set -euxo pipefail
+        sudo -i -u postgres -- psql -c "SELECT * FROM master_get_active_worker_nodes();"
       SHELL
     end
   end
@@ -136,38 +124,22 @@ def provision_worker(config, conf)
     config.vm.define vm_name = hostname do |config|
       configure_machine(config, conf, i, vm_name)
       config.vm.provision "shell", inline: <<-SHELL
-        set -eux
-        # Add apt repos to install Docker and Kubernetes
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable" \
-          > /etc/apt/sources.list.d/docker.list
-        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-        echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" \
-          > /etc/apt/sources.list.d/kubernetes.list
-        add-apt-repository ppa:gluster/glusterfs-5
-
-        # update the system
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get dist-upgrade -y
-
-        # install Docker and Kubernetes
-        apt-get install -y \
-          docker-ce=18.06.0~ce~3-0~ubuntu \
-          glusterfs-client \
-          kubelet \
-          kubeadm \
-          kubectl \
-          sysstat
-
-        # initialize kubeadm
-        kubeadm join \
-          --token=#{$kubeadm_token} \
-          --discovery-token-unsafe-skip-ca-verification \
-          10.100.1.101:6443
+        set -euxo pipefail
       SHELL
     end
   end
+end
+
+def get_worker_ips(conf)
+  ips = []
+  (1..conf["num_instances"]).each do |i|
+    # ip address
+    ip_num = conf["ip_address_start"] + i - 1
+    ip = conf["ip_address_prefix"] + "#{ip_num}"
+    ips.push(ip)
+  end
+  return ips
 end
 
 Vagrant.configure(2) do |config|
@@ -175,7 +147,7 @@ Vagrant.configure(2) do |config|
   #config.hostmanager.manage_host = false
   #config.hostmanager.manage_guest = true
   #config.vm.provision :hostmanager
-
-  provision_master(config, $conf["master"])
+  worker_ips = get_worker_ips($conf["worker"])
   provision_worker(config, $conf["worker"])
+  provision_master(config, $conf["master"], worker_ips)
 end
