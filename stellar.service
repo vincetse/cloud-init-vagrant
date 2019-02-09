@@ -1,0 +1,13 @@
+[Unit]
+Description=Stellar container runtime service
+After=containerd.service
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/
+Restart=always
+ExecStart=/usr/local/bin/stellar -D server --config /usr/local/etc/stellar.conf
+
+[Install]
+WantedBy=multi-user.target

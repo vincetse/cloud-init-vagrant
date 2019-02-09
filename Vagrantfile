@@ -4,7 +4,7 @@
 $conf = {
   "master" => {
     "num_instances" => 1, # should probably be only one.
-    "instance_name_prefix" => "c",
+    "instance_name_prefix" => "m",
     "vm_memory" => 1024,
     "vm_cpus" => 2,
     "vb_cpuexecutioncap" => 100,
@@ -16,7 +16,7 @@ $conf = {
     }
   },
   "worker" => {
-    "num_instances" => 3,
+    "num_instances" => 1,
     "instance_name_prefix" => "w",
     "vm_memory" => 1024,
     "vm_cpus" => 2,
@@ -29,6 +29,11 @@ $conf = {
     }
   }
 }
+
+$nic = "enp0s8"
+$cni_version = "0.7.4"
+$containerd_version = "1.2.3"
+$stellar_version = "0.2.0"
 
 Vagrant.require_version ">= 1.9.0"
 
@@ -71,53 +76,90 @@ def configure_machine(config, conf, i, hostname)
     set -euxo pipefail
     apt-get update
     apt-get upgrade -y -qq
+    apt-get install -y -qq \
+      make \
+      runc
   SHELL
 
-  # Citus Data
-  # https://docs.citusdata.com/en/v8.1/installation/multi_machine_debian.html
+  # CNI plugin
+  config.vm.provision "shell", inline: <<-SHELL
+    export DEBIAN_FRONTEND=noninteractive
+    set -euxo pipefail
+    mkdir -p /opt/cni/bin
+
+    curl -fsSL https://github.com/containernetworking/plugins/releases/download/v#{$cni_version}/cni-plugins-amd64-v#{$cni_version}.tgz \
+      -o cni.tgz
+    mkdir tmp
+    cd tmp
+    tar zxf ../cni.tgz
+    for i in *; do
+      install $i /opt/cni/bin
+    done
+    cd -
+    rm -rf tmp cni.tgz
+
+  SHELL
+
+  # Containerd
   config.vm.provision "shell", inline: <<-SHELL
     export DEBIAN_FRONTEND=noninteractive
     set -euxo pipefail
 
-    curl -fsSL https://install.citusdata.com/community/deb.sh | bash
-    apt-get -y install postgresql-11-citus-8.1
-    pg_conftool 11 main set shared_preload_libraries citus
-    pg_conftool 11 main set listen_addresses '*'
+    curl -fsSL https://github.com/containerd/containerd/releases/download/v#{$containerd_version}/containerd-#{$containerd_version}.linux-amd64.tar.gz \
+      -o containerd.tgz
+    tar zxf containerd.tgz
+    cd bin
+    for i in *; do
+      install $i /usr/local/bin
+    done
+    cd -
+    rm -rf bin containerd.tgz
+    mkdir /etc/containerd/
+    containerd config default > /etc/containerd/config.toml
+    cp /vagrant/containerd.service /etc/systemd/system
+    systemctl enable containerd.service
+    systemctl start containerd.service
+  SHELL
 
-    echo "host    all             all             10.0.0.0/8              trust" >> /etc/postgresql/11/main/pg_hba.conf
-    service postgresql restart
-    update-rc.d postgresql enable
-    sudo -i -u postgres -- psql -c "CREATE EXTENSION citus;"
+  # Stellar
+  config.vm.provision "shell", inline: <<-SHELL
+    export DEBIAN_FRONTEND=noninteractive
+    set -euxo pipefail
+
+    mkdir tmp
+    cd tmp
+    curl -fsSL https://github.com/ehazlett/stellar/releases/download/v#{$stellar_version}/stellar-#{$stellar_version}-linux-amd64.tar.gz -o stellar.tgz
+    tar zxf stellar.tgz
+    install sctl /usr/local/bin
+    install stellar /usr/local/bin
+    install stellar-cni-ipam /opt/cni/bin
+    cd -
+    rm -rf tmp
   SHELL
 end
 
-def provision_master(config, conf, worker_ips)
+def provision_master(config, conf)
   (1..conf["num_instances"]).each do |i|
     hostname_prefix = conf["instance_name_prefix"]
     hostname = "%s%02d" % [hostname_prefix, i]
     config.vm.define vm_name = hostname do |config|
       configure_machine(config, conf, i, vm_name)
 
-      # Citus Data
-      # https://docs.citusdata.com/en/v8.1/installation/multi_machine_debian.html
-      worker_ips.each do |ip|
-        config.vm.provision "shell", inline: <<-SHELL
-          export DEBIAN_FRONTEND=noninteractive
-          set -euxo pipefail
-          sudo -i -u postgres -- psql -c "SELECT * from master_add_node('#{ip}', 5432);"
-        SHELL
-      end
-
       config.vm.provision "shell", inline: <<-SHELL
         export DEBIAN_FRONTEND=noninteractive
         set -euxo pipefail
-        sudo -i -u postgres -- psql -c "SELECT * FROM master_get_active_worker_nodes();"
+
+        stellar config --nic #{$nic} \
+          > /usr/local/etc/stellar.conf
+        cp /vagrant/stellar.service /etc/systemd/system
+        systemctl enable stellar.service
+        systemctl start stellar.service
       SHELL
     end
   end
 end
 
-def provision_worker(config, conf)
+def provision_worker(config, conf, master_ip)
   (1..conf["num_instances"]).each do |i|
     hostname_prefix = conf["instance_name_prefix"]
     hostname = "%s%02d" % [hostname_prefix, i]
@@ -126,20 +168,26 @@ def provision_worker(config, conf)
       config.vm.provision "shell", inline: <<-SHELL
         export DEBIAN_FRONTEND=noninteractive
         set -euxo pipefail
+
+        stellar config --nic #{$nic} --peer #{master_ip}:7946 \
+          > /usr/local/etc/stellar.conf
+        cp /vagrant/stellar.service /etc/systemd/system
+        systemctl enable stellar.service
+        systemctl start stellar.service
       SHELL
     end
   end
 end
 
-def get_worker_ips(conf)
-  ips = []
+def get_master_ip(conf)
+  ip = nil
   (1..conf["num_instances"]).each do |i|
     # ip address
     ip_num = conf["ip_address_start"] + i - 1
     ip = conf["ip_address_prefix"] + "#{ip_num}"
-    ips.push(ip)
+    break
   end
-  return ips
+  return ip
 end
 
 Vagrant.configure(2) do |config|
@@ -147,7 +195,7 @@ Vagrant.configure(2) do |config|
   #config.hostmanager.manage_host = false
   #config.hostmanager.manage_guest = true
   #config.vm.provision :hostmanager
-  worker_ips = get_worker_ips($conf["worker"])
-  provision_worker(config, $conf["worker"])
-  provision_master(config, $conf["master"], worker_ips)
+  master_ip = get_master_ip($conf["master"])
+  provision_master(config, $conf["master"])
+  provision_worker(config, $conf["worker"], master_ip)
 end
