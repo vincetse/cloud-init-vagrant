@@ -14,3 +14,8 @@ list:
 
 ns:
 	sctl --addr $(addr) nameserver list
+
+curl:
+	curl -H "Host: example.com" localhost
+
+demo: create inspect ns curl delete
