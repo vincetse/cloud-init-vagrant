@@ -1,6 +1,7 @@
 [Unit]
 Description=Stellar container runtime service
-After=containerd.service
+Documentation=https://github.com/ehazlett/stellar
+After=network.target containerd.service
 
 [Service]
 User=root
