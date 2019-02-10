@@ -4,7 +4,10 @@ nodes:
 	sctl --addr $(addr) cluster info
 
 create:
-	sctl --addr $(addr) apps create -f ./example.conf
+	sctl --addr $(addr) apps create -f ./hello-world.conf
+
+delete inspect:
+	sctl --addr $(addr) apps $@ hello-world
 
 list:
 	sctl --addr $(addr) apps list

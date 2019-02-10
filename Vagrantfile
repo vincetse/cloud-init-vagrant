@@ -126,15 +126,24 @@ def configure_machine(config, conf, i, hostname)
     export DEBIAN_FRONTEND=noninteractive
     set -euxo pipefail
 
-    mkdir tmp
-    cd tmp
-    curl -fsSL https://github.com/ehazlett/stellar/releases/download/v#{$stellar_version}/stellar-#{$stellar_version}-linux-amd64.tar.gz -o stellar.tgz
-    tar zxf stellar.tgz
+    cp /vagrant/stellar.tar.bz2 .
+    tar jxf stellar.tar.bz2
+    cd bin
     install sctl /usr/local/bin
     install stellar /usr/local/bin
     install stellar-cni-ipam /opt/cni/bin
     cd -
-    rm -rf tmp
+    rm -rf bin stellar.tar.bz2
+
+    #mkdir tmp
+    #cd tmp
+    #curl -fsSL https://github.com/ehazlett/stellar/releases/download/v#{$stellar_version}/stellar-#{$stellar_version}-linux-amd64.tar.gz -o stellar.tgz
+    #tar zxf stellar.tgz
+    #install sctl /usr/local/bin
+    #install stellar /usr/local/bin
+    #install stellar-cni-ipam /opt/cni/bin
+    #cd -
+    #rm -rf tmp
   SHELL
 end
 
