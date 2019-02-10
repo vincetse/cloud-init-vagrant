@@ -16,7 +16,7 @@ $conf = {
     }
   },
   "worker" => {
-    "num_instances" => 1,
+    "num_instances" => 2,
     "instance_name_prefix" => "w",
     "vm_memory" => 1024,
     "vm_cpus" => 2,
