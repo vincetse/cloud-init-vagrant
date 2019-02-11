@@ -7,7 +7,7 @@ $conf = {
     "instance_name_prefix" => "m",
     "vm_memory" => 1024,
     "vm_cpus" => 2,
-    "vb_cpuexecutioncap" => 100,
+    "vb_cpuexecutioncap" => 60,
     "ip_address_prefix" => "10.100.1.",
     "ip_address_start" => 101,
     "shared_folders" => {
@@ -16,11 +16,11 @@ $conf = {
     }
   },
   "worker" => {
-    "num_instances" => 1,
+    "num_instances" => 2,
     "instance_name_prefix" => "w",
     "vm_memory" => 2048,
     "vm_cpus" => 2,
-    "vb_cpuexecutioncap" => 100,
+    "vb_cpuexecutioncap" => 60,
     "ip_address_prefix" => "10.100.1.",
     "ip_address_start" => 111,
     "shared_folders" => {
@@ -31,12 +31,13 @@ $conf = {
 }
 $kubeadm_token = "a36ef3.6f6960dfc28f769d"
 $pod_network_cidr = "192.168.0.0/16"
+$helm_version = "2.12.3"
 
 Vagrant.require_version ">= 1.9.0"
 
-def configure_machine(config, conf, i, hostname)
+def configure_machine(config, conf, i, hostname, etc_hosts)
   config.vm.boot_timeout = 600
-  config.vm.box = "ubuntu/xenial64"
+  config.vm.box = "ubuntu/bionic64"
   config.vm.hostname = hostname
 
   # Forward ssh keys
@@ -67,14 +68,20 @@ def configure_machine(config, conf, i, hostname)
      vb.customize [ "modifyvm", :id, "--uart1", "0x3F8", "4" ]
      vb.customize [ "modifyvm", :id, "--uartmode1", "file", File.join(Dir.pwd, "console.#{hostname}.log") ]
   end
+
+  # Add the machines to /etc/hosts
+  config.vm.provision "shell", inline: <<-SHELL
+    set -eux
+    echo "#{etc_hosts}" >> /etc/hosts
+  SHELL
 end
 
-def provision_master(config, conf)
+def provision_master(config, conf, etc_hosts)
   (1..conf["num_instances"]).each do |i|
     hostname_prefix = conf["instance_name_prefix"]
     hostname = "%s%02d" % [hostname_prefix, i]
     config.vm.define vm_name = hostname do |config|
-      configure_machine(config, conf, i, vm_name)
+      configure_machine(config, conf, i, vm_name, etc_hosts)
       config.vm.provision "shell", inline: <<-SHELL
         set -eux
         # Add apt repos to install Docker and Kubernetes
@@ -107,8 +114,10 @@ def provision_master(config, conf)
         export KUBECONFIG=/etc/kubernetes/admin.conf
 
         # Calico
-        kubectl apply \
-          -f https://docs.projectcalico.org/v2.6/getting-started/kubernetes/installation/hosted/kubeadm/1.6/calico.yaml
+        kubectl apply -f \
+          https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
+        kubectl apply -f \
+          https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
 
         # Make sure ubuntu user can run kubectl
         sudo -u ubuntu -- mkdir -p ~ubuntu/.kube
@@ -117,7 +126,7 @@ def provision_master(config, conf)
         cp ~ubuntu/.kube/config /vagrant/kubeconfig
 
         # Helm
-        curl -fsSL https://storage.googleapis.com/kubernetes-helm/helm-v2.7.1-linux-amd64.tar.gz -o helm.tar.gz
+        curl -fsSL https://storage.googleapis.com/kubernetes-helm/helm-v#{$helm_version}-linux-amd64.tar.gz -o helm.tar.gz
         tar -zxvf helm.tar.gz
         mv linux-amd64/helm /usr/local/bin
         helm init
@@ -129,12 +138,12 @@ def provision_master(config, conf)
   end
 end
 
-def provision_worker(config, conf)
+def provision_worker(config, conf, etc_hosts)
   (1..conf["num_instances"]).each do |i|
     hostname_prefix = conf["instance_name_prefix"]
     hostname = "%s%02d" % [hostname_prefix, i]
     config.vm.define vm_name = hostname do |config|
-      configure_machine(config, conf, i, vm_name)
+      configure_machine(config, conf, i, vm_name, etc_hosts)
       config.vm.provision "shell", inline: <<-SHELL
         set -eux
         # Add apt repos to install Docker and Kubernetes
@@ -170,12 +179,27 @@ def provision_worker(config, conf)
   end
 end
 
+def etc_hosts_data(conf)
+  hosts = []
+  conf.each do |t, conf|
+    (1..conf["num_instances"]).each do |i|
+      ip_num = conf["ip_address_start"] + i - 1
+      ip = conf["ip_address_prefix"] + "#{ip_num}"
+      hostname_prefix = conf["instance_name_prefix"]
+      hostname = "%s%02d" % [hostname_prefix, i]
+      hosts.push("#{ip} #{hostname}")
+    end
+  end
+  return hosts.join("\n")
+end
+
 Vagrant.configure(2) do |config|
   #config.hostmanager.enabled = true
   #config.hostmanager.manage_host = false
   #config.hostmanager.manage_guest = true
   #config.vm.provision :hostmanager
+  etc_hosts = etc_hosts_data($conf)
 
-  provision_master(config, $conf["master"])
-  provision_worker(config, $conf["worker"])
+  provision_master(config, $conf["master"], etc_hosts)
+  provision_worker(config, $conf["worker"], etc_hosts)
 end
