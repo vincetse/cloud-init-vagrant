@@ -29,9 +29,6 @@ $conf = {
     }
   }
 }
-$kubeadm_token = "a36ef3.6f6960dfc28f769d"
-$pod_network_cidr = "192.168.0.0/16"
-$helm_version = "2.12.3"
 
 Vagrant.require_version ">= 1.9.0"
 
@@ -71,8 +68,12 @@ def configure_machine(config, conf, i, hostname, etc_hosts)
 
   # Add the machines to /etc/hosts
   config.vm.provision "shell", inline: <<-SHELL
-    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+    set -euxo pipefail
     echo "#{etc_hosts}" >> /etc/hosts
+    apt-get update
+    apt-get dist-upgrade -y -qq
+    apt-get autoremove -y
   SHELL
 end
 
@@ -83,56 +84,8 @@ def provision_master(config, conf, etc_hosts)
     config.vm.define vm_name = hostname do |config|
       configure_machine(config, conf, i, vm_name, etc_hosts)
       config.vm.provision "shell", inline: <<-SHELL
-        set -eux
-        # Add apt repos to install Docker and Kubernetes
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable" \
-          > /etc/apt/sources.list.d/docker.list
-        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-        echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" \
-          > /etc/apt/sources.list.d/kubernetes.list
-
-        # update the system
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get dist-upgrade -y
-
-        # install Docker and Kubernetes
-        apt-get install -y \
-          docker-ce=18.06.0~ce~3-0~ubuntu \
-          kubelet \
-          kubeadm \
-          kubectl \
-          sysstat
-
-        # initialize kubeadm
-        kubeadm init \
-          --token=#{$kubeadm_token} \
-          --token-ttl=0 \
-          --pod-network-cidr=#{$pod_network_cidr} \
-          --apiserver-advertise-address=10.100.1.101
-        export KUBECONFIG=/etc/kubernetes/admin.conf
-
-        # Calico
-        kubectl apply -f \
-          https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
-        kubectl apply -f \
-          https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
-
-        # Make sure ubuntu user can run kubectl
-        sudo -u ubuntu -- mkdir -p ~ubuntu/.kube
-        cp -i /etc/kubernetes/admin.conf ~ubuntu/.kube/config
-        chown -R ubuntu:ubuntu ~ubuntu/.kube
-        cp ~ubuntu/.kube/config /vagrant/kubeconfig
-
-        # Helm
-        curl -fsSL https://storage.googleapis.com/kubernetes-helm/helm-v#{$helm_version}-linux-amd64.tar.gz -o helm.tar.gz
-        tar -zxvf helm.tar.gz
-        mv linux-amd64/helm /usr/local/bin
-        helm init
-        kubectl create serviceaccount tiller --namespace kube-system
-        kubectl create -f /vagrant/tiller-clusterrolebinding.yaml
-        helm init --service-account tiller --upgrade
+        set -euxo pipefail
       SHELL
     end
   end
@@ -145,35 +98,8 @@ def provision_worker(config, conf, etc_hosts)
     config.vm.define vm_name = hostname do |config|
       configure_machine(config, conf, i, vm_name, etc_hosts)
       config.vm.provision "shell", inline: <<-SHELL
-        set -eux
-        # Add apt repos to install Docker and Kubernetes
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable" \
-          > /etc/apt/sources.list.d/docker.list
-        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-        echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" \
-          > /etc/apt/sources.list.d/kubernetes.list
-        add-apt-repository ppa:gluster/glusterfs-5
-
-        # update the system
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get dist-upgrade -y
-
-        # install Docker and Kubernetes
-        apt-get install -y \
-          docker-ce=18.06.0~ce~3-0~ubuntu \
-          glusterfs-client \
-          kubelet \
-          kubeadm \
-          kubectl \
-          sysstat
-
-        # initialize kubeadm
-        kubeadm join \
-          --token=#{$kubeadm_token} \
-          --discovery-token-unsafe-skip-ca-verification \
-          10.100.1.101:6443
+        set -euxo pipefail
       SHELL
     end
   end
