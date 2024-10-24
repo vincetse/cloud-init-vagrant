@@ -32,6 +32,8 @@ SELECT create_distributed_table('github_users', 'user_id');
 \copy github_events FROM PROGRAM 'zcat events.csv.gz' CSV;
 \copy github_users FROM PROGRAM 'zcat users.csv.gz' CSV;
 
+SELECT * FROM citus_tables;
+
 SELECT count(*) FROM github_events;
 
 SELECT date_trunc('hour', created_at) AS hour,
